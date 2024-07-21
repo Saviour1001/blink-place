@@ -1,13 +1,9 @@
 import Jimp from "jimp";
 
-// Initialize image
-let width = 800;
-let height = 600;
+// Initialize image with fixed size
+const width = 800;
+const height = 600;
 let image: Jimp;
-
-// Grid to track occupied spaces
-let gridSize = 10; // Size of each grid cell
-let grid: boolean[][];
 
 // Array to store added words
 const addedWords: Array<{
@@ -65,75 +61,10 @@ async function getFontForSize(fontSize: number): Promise<any> {
   return await Jimp.loadFont(Jimp.FONT_SANS_128_BLACK);
 }
 
-// Function to initialize or resize the grid
-function initializeGrid() {
-  grid = Array(Math.ceil(height / gridSize))
-    .fill(null)
-    .map(() => Array(Math.ceil(width / gridSize)).fill(false));
-}
-
-// Function to check if a space is available
-function isSpaceAvailable(x: number, y: number, w: number, h: number): boolean {
-  const startX = Math.floor(x / gridSize);
-  const startY = Math.floor(y / gridSize);
-  const endX = Math.ceil((x + w) / gridSize);
-  const endY = Math.ceil((y + h) / gridSize);
-
-  for (let i = startY; i < endY; i++) {
-    for (let j = startX; j < endX; j++) {
-      if (i >= grid.length || j >= grid[0].length || grid[i][j]) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-// Function to mark space as occupied
-function occupySpace(x: number, y: number, w: number, h: number): void {
-  const startX = Math.floor(x / gridSize);
-  const startY = Math.floor(y / gridSize);
-  const endX = Math.ceil((x + w) / gridSize);
-  const endY = Math.ceil((y + h) / gridSize);
-
-  for (let i = startY; i < endY; i++) {
-    for (let j = startX; j < endX; j++) {
-      if (i < grid.length && j < grid[0].length) {
-        grid[i][j] = true;
-      }
-    }
-  }
-}
-
-// Function to find available space for a word
-function findSpace(w: number, h: number): [number, number] | null {
-  const attempts = 1000; // Number of attempts to find space
-  for (let i = 0; i < attempts; i++) {
-    const x = Math.floor(Math.random() * (width - w));
-    const y = Math.floor(Math.random() * (height - h));
-    if (isSpaceAvailable(x, y, w, h)) {
-      return [x, y];
-    }
-  }
-  return null; // Couldn't find space
-}
-
-// Function to resize the image
-async function resizeImage() {
-  width += 100;
-  height += 75;
-  const newImage = new Jimp(width, height, 0xffffffff);
-  newImage.composite(image, 0, 0);
-  image = newImage;
-  initializeGrid();
-  console.log(`Resized image to ${width}x${height}`);
-}
-
 // Function to add a word to the image
 async function addWord(word: string, fontSize: number) {
   if (!image) {
     image = new Jimp(width, height, 0xffffffff);
-    initializeGrid();
   }
 
   const color = getRandomColor();
@@ -142,15 +73,9 @@ async function addWord(word: string, fontSize: number) {
   const textWidth = Jimp.measureText(font, word);
   const textHeight = Jimp.measureTextHeight(font, word, width);
 
-  let space = findSpace(textWidth, textHeight);
-
-  // If no space found, resize the image and try again
-  while (!space) {
-    await resizeImage();
-    space = findSpace(textWidth, textHeight);
-  }
-
-  const [x, y] = space;
+  // Find a random position for the word
+  const x = Math.floor(Math.random() * (width - textWidth));
+  const y = Math.floor(Math.random() * (height - textHeight));
 
   const textImage = new Jimp(textWidth, textHeight);
   textImage.print(
@@ -178,8 +103,6 @@ async function addWord(word: string, fontSize: number) {
     opacitySource: 1,
     opacityDest: 1,
   });
-
-  occupySpace(x, y, textWidth, textHeight);
 
   addedWords.push({ word, fontSize, color, x, y });
 
@@ -219,8 +142,8 @@ async function main() {
     { word: "Layout", size: 56 },
   ];
 
-  // Sort words by size (largest first) to prioritize placing larger words
-  words.sort((a, b) => b.size - a.size);
+  // Shuffle the words array to randomize placement
+  words.sort(() => Math.random() - 0.5);
 
   for (const { word, size } of words) {
     await addWord(word, size);
